@@ -1,21 +1,43 @@
 'use strict';
 
+import supabase from './supabase-client';
+
 // With background scripts you can communicate with popup
 // and contentScript files.
 // For more information on background script,
 // See https://developer.chrome.com/extensions/background_pages
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.type === 'GREETINGS') {
-    const message = `Hi ${
-      sender.tab ? 'Con' : 'Pop'
-    }, my name is Bac. I am from Background. It's great to hear from you.`;
+  (async () => {
+    if (request.type === 'SEND_JOBS_LINKS') {
+      const jobsLinks = request.payload.message;
 
-    // Log message coming from the `request` parameter
-    console.log(request.payload.message);
-    // Send a response message
-    sendResponse({
-      message,
-    });
-  }
+      if (Array.isArray(jobsLinks) && jobsLinks.length > 0) {
+        let data;
+
+        try {
+          data = await Promise.all(
+            await jobsLinks.map(async (link) => {
+              const { data: job, error } = await supabase
+                .from('jobs')
+                .select('*')
+                .eq('link', link);
+
+              return job;
+            })
+          );
+
+          sendResponse({
+            message: { data, error: null },
+          });
+        } catch (error) {
+          sendResponse({
+            message: { data: null, error },
+          });
+        }
+      }
+    }
+  })();
+
+  return true;
 });
